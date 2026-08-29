@@ -147,8 +147,39 @@
 
   <script>
     const DEFAULT_PARTICIPANTS = ["João Zanetti", "Willian", "Weslen"];
+
+    function getParticipantName(p) {
+      if (!p) return '';
+      if (typeof p === 'string') return p;
+      return p.name || p.id || String(p);
+    }
+
+    function normalizeParticipants(list) {
+      if (!Array.isArray(list) || list.length === 0) return DEFAULT_PARTICIPANTS;
+      return list.map(p => getParticipantName(p)).filter(Boolean);
+    }
+
+    function normalizeTransactions(txList, participantsList) {
+      if (!Array.isArray(txList)) return [];
+      return txList.map(tx => {
+        const type = (tx.type || 'EXPENSE').toUpperCase();
+        let payer = getParticipantName(tx.payer || tx.paidBy);
+        let rawSplit = tx.splitWith || tx.beneficiaries || participantsList;
+        let splitWith = Array.isArray(rawSplit) ? rawSplit.map(getParticipantName) : [...participantsList];
+        return {
+          id: tx.id || 'tx_' + Date.now(),
+          type,
+          date: tx.date || new Date().toISOString().split('T')[0],
+          description: tx.description || 'Despesa',
+          amount: parseFloat(tx.amount) || 0,
+          payer: payer || participantsList[0] || '',
+          splitWith: splitWith.length > 0 ? splitWith : [...participantsList]
+        };
+      });
+    }
+
     let state = {
-      participants: JSON.parse(localStorage.getItem('app_participants')) || DEFAULT_PARTICIPANTS,
+      participants: normalizeParticipants(JSON.parse(localStorage.getItem('app_participants'))),
       transactions: JSON.parse(localStorage.getItem('app_transactions')) || []
     };
 
@@ -165,8 +196,12 @@
         if (res.ok) {
           const data = await res.json();
           if (data && !data._offlineFallback) {
-            if (data.participants && data.participants.length > 0) state.participants = data.participants;
-            if (data.transactions) state.transactions = data.transactions;
+            if (data.participants && data.participants.length > 0) {
+              state.participants = normalizeParticipants(data.participants);
+            }
+            if (data.transactions) {
+              state.transactions = normalizeTransactions(data.transactions, state.participants);
+            }
             if (statusEl) statusEl.innerText = "☁️ Nuvem Conectada";
             localStorage.setItem('app_participants', JSON.stringify(state.participants));
             localStorage.setItem('app_transactions', JSON.stringify(state.transactions));
