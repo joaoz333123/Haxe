@@ -1,6 +1,25 @@
+function getRedisConfig() {
+  let url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  let token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if ((!url || !token) && process.env.REDIS_URL) {
+    try {
+      const parsed = new URL(process.env.REDIS_URL);
+      token = parsed.password || token;
+      const host = parsed.hostname;
+      if (host && token) {
+        url = `https://${host}`;
+      }
+    } catch (e) {
+      console.warn('Error parsing REDIS_URL:', e);
+    }
+  }
+
+  return { url, token };
+}
+
 module.exports = async function handler(req, res) {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  const { url, token } = getRedisConfig();
   const STORAGE_KEY = 'haxe_rateio_data';
 
   if (req.method === 'GET') {
