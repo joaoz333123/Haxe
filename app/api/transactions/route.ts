@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import Redis from 'ioredis';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -15,26 +15,58 @@ const DEFAULT_DATA = {
   settledCycles: [],
 };
 
+let redisClient: Redis | null = null;
+
+function getRedisClient(): Redis | null {
+  const url = process.env.REDIS_URL || process.env.KV_URL;
+  if (!url) {
+    return null;
+  }
+  if (!redisClient) {
+    redisClient = new Redis(url, {
+      maxRetriesPerRequest: 3,
+      connectTimeout: 5000,
+      lazyConnect: true,
+    });
+  }
+  return redisClient;
+}
+
 export async function GET() {
   try {
-    const data = await kv.get(STORAGE_KEY);
-    if (!data) {
+    const redis = getRedisClient();
+    if (!redis) {
+      return NextResponse.json({ ...DEFAULT_DATA, _offlineFallback: true });
+    }
+    if (redis.status === 'wait') {
+      await redis.connect();
+    }
+    const rawData = await redis.get(STORAGE_KEY);
+    if (!rawData) {
       return NextResponse.json(DEFAULT_DATA);
     }
+    const data = JSON.parse(rawData);
     return NextResponse.json(data);
   } catch (error) {
-    console.warn('Vercel KV offline fallback:', error);
+    console.warn('Redis connection fallback:', error);
     return NextResponse.json({ ...DEFAULT_DATA, _offlineFallback: true });
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const redis = getRedisClient();
+    if (!redis) {
+      return NextResponse.json({ error: 'REDIS_URL not configured' }, { status: 500 });
+    }
+    if (redis.status === 'wait') {
+      await redis.connect();
+    }
     const body = await request.json();
-    await kv.set(STORAGE_KEY, body);
+    await redis.set(STORAGE_KEY, JSON.stringify(body));
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Vercel KV Save Error:', error);
-    return NextResponse.json({ error: 'Failed to save' }, { status: 500 });
+    console.error('Redis Save Error:', error);
+    return NextResponse.json({ error: 'Failed to save to Redis' }, { status: 500 });
   }
 }
