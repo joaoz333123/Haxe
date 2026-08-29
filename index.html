@@ -10,141 +10,142 @@
     .touch-target { min-height: 44px; min-width: 44px; }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans pb-24">
+<body class="bg-slate-900 text-slate-100 font-sans pb-24 border-x border-slate-800 max-w-md mx-auto min-h-screen">
 
   <!-- Header -->
-  <header class="bg-slate-900 text-white p-4 sticky top-0 z-30 shadow-md flex justify-between items-center">
+  <header class="bg-slate-950 text-white p-4 sticky top-0 z-30 shadow-lg border-b border-slate-800 flex justify-between items-center">
     <div>
-      <h1 class="text-lg font-bold">Acerto de Contas</h1>
-      <span id="sync-status" class="text-xs text-emerald-400 font-medium">● LocalStorage Ativo</span>
+      <h1 class="text-base font-bold flex items-center gap-1.5">
+        ⚡ Rateio Fácil
+      </h1>
+      <span id="sync-status" class="text-xs text-emerald-400 font-medium">● Carregando...</span>
     </div>
     <div class="flex gap-2">
-      <button onclick="openModal('modal-participants')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 touch-target flex items-center">
-        Participantes
+      <button onclick="openModal('modal-participants')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-xl border border-slate-700 touch-target flex items-center font-medium">
+        👥 Pessoas
       </button>
-      <button onclick="settleAll()" class="bg-amber-600 hover:bg-amber-500 text-xs px-3 py-2 rounded-lg touch-target flex items-center font-medium">
-        Liquidar
+      <button onclick="settleAll()" class="bg-emerald-500 hover:bg-emerald-400 text-xs px-3 py-2 rounded-xl touch-target flex items-center font-semibold text-slate-950">
+        ✓ Zerar Ciclo
       </button>
     </div>
   </header>
 
-  <main class="max-w-md mx-auto p-4 space-y-4">
+  <main class="p-4 space-y-4">
     
     <!-- Painel de Saldos -->
-    <section class="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-      <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Saldos Líquidos</h2>
+    <section class="bg-slate-800/90 rounded-2xl p-4 shadow-md border border-slate-700/80 space-y-3">
+      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Saldos Líquidos</h2>
       <div id="balances-container" class="grid grid-cols-3 gap-2"></div>
       
-      <div class="mt-4 pt-3 border-t border-slate-100">
-        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Acertos Sugeridos</h3>
-        <div id="debts-container" class="space-y-1 text-sm"></div>
+      <div class="mt-4 pt-3 border-t border-slate-700/60">
+        <h3 class="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2">Quem paga quem (PIX)</h3>
+        <div id="debts-container" class="space-y-2 text-sm"></div>
       </div>
     </section>
 
     <!-- Extrato Cronológico -->
     <section class="space-y-3">
-      <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">Histórico de Lançamentos</h2>
+      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">Histórico de Lançamentos</h2>
       <div id="feed-container" class="space-y-3"></div>
     </section>
 
   </main>
 
   <!-- Barra de Ações Fixa (Mobile) -->
-  <footer class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 z-20">
-    <div class="max-w-md mx-auto grid grid-cols-2 gap-3">
-      <button onclick="openExpenseModal()" class="bg-blue-600 active:bg-blue-700 text-white font-medium rounded-xl text-sm py-3 shadow-sm touch-target">
-        + Despesa
+  <footer class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-950/95 backdrop-blur-md border-t border-slate-800 p-3 z-20">
+    <div class="grid grid-cols-2 gap-3">
+      <button onclick="openExpenseModal()" class="bg-blue-600 active:bg-blue-700 text-white font-bold rounded-xl text-sm py-3 shadow-md touch-target flex items-center justify-center gap-1.5">
+        <span>+</span> Nova Despesa
       </button>
-      <button onclick="openPaymentModal()" class="bg-emerald-600 active:bg-emerald-700 text-white font-medium rounded-xl text-sm py-3 shadow-sm touch-target">
-        + Abatimento / PIX
+      <button onclick="openPaymentModal()" class="bg-emerald-500 active:bg-emerald-600 text-slate-950 font-bold rounded-xl text-sm py-3 shadow-md touch-target flex items-center justify-center gap-1.5">
+        <span>💸</span> Abatimento / PIX
       </button>
     </div>
   </footer>
 
   <!-- MODAL: Gerenciar Participantes -->
-  <div id="modal-participants" class="fixed inset-0 bg-black/60 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+  <div id="modal-participants" class="fixed inset-0 bg-black/70 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 text-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
       <div class="flex justify-between items-center">
-        <h3 class="font-bold text-base">Participantes</h3>
-        <button onclick="closeModal('modal-participants')" class="text-slate-400 hover:text-slate-600 p-2 touch-target">✕</button>
+        <h3 class="font-bold text-base">Gerenciar Participantes</h3>
+        <button onclick="closeModal('modal-participants')" class="text-slate-400 hover:text-white p-2 touch-target">✕</button>
       </div>
       <div class="flex gap-2">
-        <input type="text" id="new-participant-name" placeholder="Nome do participante" class="flex-1 border rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
-        <button onclick="addParticipant()" class="bg-slate-900 text-white px-4 rounded-lg text-sm font-medium touch-target">Adicionar</button>
+        <input type="text" id="new-participant-name" placeholder="Nome do participante" class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500 text-white" />
+        <button onclick="addParticipant()" class="bg-emerald-500 text-slate-950 px-4 rounded-xl text-sm font-bold touch-target">Adicionar</button>
       </div>
-      <div id="participants-list" class="divide-y divide-slate-100"></div>
+      <div id="participants-list" class="divide-y divide-slate-800"></div>
     </div>
   </div>
 
   <!-- MODAL: Despesa (Criar / Editar) -->
-  <div id="modal-expense" class="fixed inset-0 bg-black/60 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+  <div id="modal-expense" class="fixed inset-0 bg-black/70 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 text-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 id="expense-modal-title" class="font-bold text-base">Nova Despesa</h3>
-        <button onclick="closeModal('modal-expense')" class="text-slate-400 hover:text-slate-600 p-2 touch-target">✕</button>
+        <button onclick="closeModal('modal-expense')" class="text-slate-400 hover:text-white p-2 touch-target">✕</button>
       </div>
       <form id="form-expense" onsubmit="saveExpense(event)" class="space-y-4">
         <input type="hidden" id="expense-id" />
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Data</label>
-          <input type="date" id="expense-date" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Data</label>
+          <input type="date" id="expense-date" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Descrição / Estabelecimento</label>
-          <input type="text" id="expense-desc" placeholder="Ex: Supermercado, Almoço..." required class="w-full border rounded-lg px-3 py-2 text-sm" />
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Descrição / Estabelecimento</label>
+          <input type="text" id="expense-desc" placeholder="Ex: Supermercado, Almoço..." required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Valor Total (R$)</label>
-          <input type="number" step="0.01" inputmode="decimal" id="expense-amount" placeholder="0,00" required class="w-full border rounded-lg px-3 py-2 text-base font-semibold" oninput="updateQuotaDisplay()" />
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Valor Total (R$)</label>
+          <input type="number" step="0.01" inputmode="decimal" id="expense-amount" placeholder="0,00" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-base font-bold text-emerald-400" oninput="updateQuotaDisplay()" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Quem Pagou?</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Quem Pagou?</label>
           <div id="expense-payer-chips" class="flex flex-wrap gap-2"></div>
         </div>
         <div>
           <div class="flex justify-between items-center mb-1">
-            <label class="block text-xs font-semibold text-slate-600">Dividir Entre:</label>
-            <span id="quota-display" class="text-xs font-semibold text-blue-600"></span>
+            <label class="block text-xs font-semibold text-slate-300">Dividir Entre:</label>
+            <span id="quota-display" class="text-xs font-semibold text-emerald-400"></span>
           </div>
           <div id="expense-split-chips" class="flex flex-wrap gap-2"></div>
         </div>
-        <button type="submit" class="w-full bg-blue-600 active:bg-blue-700 text-white font-medium py-3 rounded-xl touch-target">Salvar Despesa</button>
+        <button type="submit" class="w-full bg-emerald-500 text-slate-950 font-bold py-3 rounded-xl touch-target">Salvar Despesa</button>
       </form>
     </div>
   </div>
 
   <!-- MODAL: Abatimento / PIX -->
-  <div id="modal-payment" class="fixed inset-0 bg-black/60 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+  <div id="modal-payment" class="fixed inset-0 bg-black/70 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 text-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 class="font-bold text-base">Registrar Pagamento / PIX</h3>
-        <button onclick="closeModal('modal-payment')" class="text-slate-400 hover:text-slate-600 p-2 touch-target">✕</button>
+        <button onclick="closeModal('modal-payment')" class="text-slate-400 hover:text-white p-2 touch-target">✕</button>
       </div>
       <form id="form-payment" onsubmit="savePayment(event)" class="space-y-4">
         <input type="hidden" id="payment-id" />
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Data</label>
-          <input type="date" id="payment-date" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Data</label>
+          <input type="date" id="payment-date" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Valor Pago (R$)</label>
-          <input type="number" step="0.01" inputmode="decimal" id="payment-amount" placeholder="0,00" required class="w-full border rounded-lg px-3 py-2 text-base font-semibold" />
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Valor Pago (R$)</label>
+          <input type="number" step="0.01" inputmode="decimal" id="payment-amount" placeholder="0,00" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-base font-bold text-emerald-400" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Quem Transferiu?</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Quem Transferiu?</label>
           <div id="payment-payer-chips" class="flex flex-wrap gap-2"></div>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Para Quem (Recebedores do crédito):</label>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Para Quem (Recebedores do crédito):</label>
           <div id="payment-receivers-chips" class="flex flex-wrap gap-2"></div>
         </div>
-        <button type="submit" class="w-full bg-emerald-600 active:bg-emerald-700 text-white font-medium py-3 rounded-xl touch-target">Registrar Pagamento</button>
+        <button type="submit" class="w-full bg-emerald-500 text-slate-950 font-bold py-3 rounded-xl touch-target">Registrar Pagamento</button>
       </form>
     </div>
   </div>
 
   <script>
-    // Estado da Aplicação
     const DEFAULT_PARTICIPANTS = ["João Zanetti", "Willian", "Weslen"];
     let state = {
       participants: JSON.parse(localStorage.getItem('app_participants')) || DEFAULT_PARTICIPANTS,
@@ -156,10 +157,48 @@
     let selectedPaymentPayer = "";
     let selectedPaymentReceivers = [];
 
-    function saveState() {
+    async function fetchCloudData() {
+      const statusEl = document.getElementById('sync-status');
+      if (statusEl) statusEl.innerText = "● Sincronizando...";
+      try {
+        const res = await fetch('/api/transactions');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && !data._offlineFallback) {
+            if (data.participants && data.participants.length > 0) state.participants = data.participants;
+            if (data.transactions) state.transactions = data.transactions;
+            if (statusEl) statusEl.innerText = "☁️ Nuvem Conectada";
+            localStorage.setItem('app_participants', JSON.stringify(state.participants));
+            localStorage.setItem('app_transactions', JSON.stringify(state.transactions));
+            render();
+            return;
+          }
+        }
+      } catch (e) {}
+      if (statusEl) statusEl.innerText = "📱 Modo Local";
+    }
+
+    async function saveState() {
       localStorage.setItem('app_participants', JSON.stringify(state.participants));
       localStorage.setItem('app_transactions', JSON.stringify(state.transactions));
       render();
+
+      const statusEl = document.getElementById('sync-status');
+      try {
+        const res = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            participants: state.participants,
+            transactions: state.transactions
+          })
+        });
+        if (res.ok && statusEl) {
+          statusEl.innerText = "☁️ Nuvem Conectada";
+        }
+      } catch (e) {
+        if (statusEl) statusEl.innerText = "📱 Modo Local";
+      }
     }
 
     function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
@@ -192,8 +231,8 @@
       const container = document.getElementById('participants-list');
       container.innerHTML = state.participants.map(p => `
         <div class="flex justify-between items-center py-2.5">
-          <span class="text-sm font-medium">${p}</span>
-          <button onclick="removeParticipant('${p}')" class="text-rose-500 text-xs px-2 py-1 rounded hover:bg-rose-50 touch-target">Excluir</button>
+          <span class="text-sm font-medium text-white">${p}</span>
+          <button onclick="removeParticipant('${p}')" class="text-rose-400 text-xs px-2 py-1 rounded hover:bg-rose-950 touch-target">Excluir</button>
         </div>
       `).join('');
     }
@@ -228,7 +267,7 @@
       const payerContainer = document.getElementById('expense-payer-chips');
       payerContainer.innerHTML = state.participants.map(p => `
         <button type="button" onclick="selectedExpensePayer='${p}'; renderExpenseChips();" 
-          class="px-3 py-2 rounded-lg text-xs font-medium border transition-colors touch-target ${selectedExpensePayer === p ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+          class="px-3 py-2 rounded-xl text-xs font-medium border transition-colors touch-target ${selectedExpensePayer === p ? 'bg-emerald-500 text-slate-950 font-bold border-emerald-500' : 'bg-slate-800 text-slate-300 border-slate-700'}">
           ${p}
         </button>
       `).join('');
@@ -238,7 +277,7 @@
         const active = selectedExpenseSplit.includes(p);
         return `
           <button type="button" onclick="toggleExpenseSplit('${p}')" 
-            class="px-3 py-2 rounded-lg text-xs font-medium border transition-colors touch-target ${active ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+            class="px-3 py-2 rounded-xl text-xs font-medium border transition-colors touch-target ${active ? 'bg-blue-600 text-white font-bold border-blue-600' : 'bg-slate-800 text-slate-300 border-slate-700'}">
             ${active ? '✓ ' : ''}${p}
           </button>
         `;
@@ -312,7 +351,7 @@
       const payerContainer = document.getElementById('payment-payer-chips');
       payerContainer.innerHTML = state.participants.map(p => `
         <button type="button" onclick="selectedPaymentPayer='${p}'; selectedPaymentReceivers = selectedPaymentReceivers.filter(r => r !== '${p}'); renderPaymentChips();" 
-          class="px-3 py-2 rounded-lg text-xs font-medium border touch-target ${selectedPaymentPayer === p ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+          class="px-3 py-2 rounded-xl text-xs font-medium border touch-target ${selectedPaymentPayer === p ? 'bg-emerald-500 text-slate-950 font-bold border-emerald-500' : 'bg-slate-800 text-slate-300 border-slate-700'}">
           ${p}
         </button>
       `).join('');
@@ -322,7 +361,7 @@
         const active = selectedPaymentReceivers.includes(p);
         return `
           <button type="button" onclick="togglePaymentReceiver('${p}')" 
-            class="px-3 py-2 rounded-lg text-xs font-medium border touch-target ${active ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+            class="px-3 py-2 rounded-xl text-xs font-medium border touch-target ${active ? 'bg-emerald-600 text-white font-bold border-emerald-600' : 'bg-slate-800 text-slate-300 border-slate-700'}">
             ${active ? '✓ ' : ''}${p}
           </button>
         `;
@@ -373,7 +412,7 @@
     }
 
     function settleAll() {
-      if (confirm("Deseja liquidar todas as contas e arquivar o ciclo atual?")) {
+      if (confirm("Deseja liquidar todas as contas e zerar o ciclo atual?")) {
         state.transactions = [];
         saveState();
       }
@@ -437,7 +476,6 @@
       return settlements;
     }
 
-    // Renderização Principal
     function render() {
       renderParticipants();
       
@@ -447,9 +485,9 @@
         const val = balances[p] || 0;
         const isPositive = val > 0.01;
         const isNegative = val < -0.01;
-        const color = isPositive ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : isNegative ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-slate-600 bg-slate-50 border-slate-200';
+        const color = isPositive ? 'text-emerald-400 bg-emerald-950/40 border-emerald-500/30' : isNegative ? 'text-rose-400 bg-rose-950/40 border-rose-500/30' : 'text-slate-400 bg-slate-900 border-slate-800';
         return `
-          <div class="p-2.5 rounded-lg border text-center ${color}">
+          <div class="p-2.5 rounded-xl border text-center ${color}">
             <div class="text-[11px] font-medium truncate">${p}</div>
             <div class="text-xs font-bold mt-0.5">R$ ${val.toFixed(2)}</div>
           </div>
@@ -462,21 +500,19 @@
         debtsContainer.innerHTML = `<span class="text-xs text-slate-400">Tudo zerado! Nenhuma pendência.</span>`;
       } else {
         debtsContainer.innerHTML = debts.map(d => `
-          <div class="flex items-center justify-between py-1 border-b border-slate-50 text-xs">
-            <span><strong class="text-rose-600">${d.from}</strong> deve para <strong class="text-emerald-600">${d.to}</strong></span>
-            <span class="font-bold">R$ ${d.amount.toFixed(2)}</span>
+          <div class="flex items-center justify-between py-1 border-b border-slate-800 text-xs">
+            <span><strong class="text-rose-400">${d.from}</strong> paga para <strong class="text-emerald-400">${d.to}</strong></span>
+            <span class="font-bold text-white">R$ ${d.amount.toFixed(2)}</span>
           </div>
         `).join('');
       }
 
-      // Extrato Agrupado por Data
       const feedContainer = document.getElementById('feed-container');
       if (state.transactions.length === 0) {
-        feedContainer.innerHTML = `<div class="bg-white rounded-xl p-6 text-center text-slate-400 text-sm border border-slate-200">Nenhum lançamento registrado.</div>`;
+        feedContainer.innerHTML = `<div class="bg-slate-800/80 rounded-2xl p-6 text-center text-slate-400 text-sm border border-slate-700">Nenhum lançamento registrado.</div>`;
         return;
       }
 
-      // Agrupamento
       const grouped = {};
       state.transactions.forEach(tx => {
         if (!grouped[tx.date]) grouped[tx.date] = [];
@@ -489,29 +525,29 @@
 
         return `
           <div class="space-y-1.5">
-            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">${dateFormatted}</div>
+            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-1">${dateFormatted}</div>
             ${items.map(item => {
               const isExpense = item.type === 'EXPENSE';
               const quota = (item.amount / item.splitWith.length).toFixed(2);
               return `
-                <div class="bg-white rounded-xl p-3.5 shadow-sm border border-slate-200 flex flex-col gap-2">
+                <div class="bg-slate-800/90 rounded-2xl p-3.5 shadow-sm border border-slate-700 flex flex-col gap-2">
                   <div class="flex justify-between items-start">
                     <div>
-                      <div class="font-semibold text-sm text-slate-800">${item.description}</div>
-                      <div class="text-xs text-slate-500 mt-0.5">
-                        Pago por <strong class="text-slate-700">${item.payer}</strong>
+                      <div class="font-semibold text-sm text-white">${item.description}</div>
+                      <div class="text-xs text-slate-400 mt-0.5">
+                        Pago por <strong class="text-slate-200">${item.payer}</strong>
                         ${isExpense ? `• R$ ${quota} / pessoa` : ''}
                       </div>
                     </div>
-                    <span class="text-sm font-bold ${isExpense ? 'text-slate-900' : 'text-emerald-600'}">
+                    <span class="text-sm font-bold ${isExpense ? 'text-white' : 'text-emerald-400'}">
                       R$ ${item.amount.toFixed(2)}
                     </span>
                   </div>
-                  <div class="flex justify-between items-center pt-2 border-t border-slate-100 text-xs text-slate-400">
+                  <div class="flex justify-between items-center pt-2 border-t border-slate-700/60 text-xs text-slate-400">
                     <span class="truncate max-w-[200px]">Divisão: ${item.splitWith.join(', ')}</span>
                     <div class="flex gap-2">
-                      ${isExpense ? `<button onclick="openExpenseModal('${item.id}')" class="text-blue-600 hover:underline">Editar</button>` : ''}
-                      <button onclick="deleteTransaction('${item.id}')" class="text-rose-600 hover:underline">Excluir</button>
+                      ${isExpense ? `<button onclick="openExpenseModal('${item.id}')" class="text-blue-400 hover:underline">Editar</button>` : ''}
+                      <button onclick="deleteTransaction('${item.id}')" class="text-rose-400 hover:underline">Excluir</button>
                     </div>
                   </div>
                 </div>
@@ -522,8 +558,8 @@
       }).join('');
     }
 
-    // Inicialização
     render();
+    fetchCloudData();
   </script>
 </body>
 </html>
