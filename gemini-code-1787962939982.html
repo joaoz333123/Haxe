@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Rateio & Acerto de Contas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    input, select, button { min-height: 44px; }
+    .touch-target { min-height: 44px; min-width: 44px; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans pb-24">
+
+  <!-- Header -->
+  <header class="bg-slate-900 text-white p-4 sticky top-0 z-30 shadow-md flex justify-between items-center">
+    <div>
+      <h1 class="text-lg font-bold">Acerto de Contas</h1>
+      <span id="sync-status" class="text-xs text-emerald-400 font-medium">● LocalStorage Ativo</span>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="openModal('modal-participants')" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700 touch-target flex items-center">
+        Participantes
+      </button>
+      <button onclick="settleAll()" class="bg-amber-600 hover:bg-amber-500 text-xs px-3 py-2 rounded-lg touch-target flex items-center font-medium">
+        Liquidar
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto p-4 space-y-4">
+    
+    <!-- Painel de Saldos -->
+    <section class="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+      <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Saldos Líquidos</h2>
+      <div id="balances-container" class="grid grid-cols-3 gap-2"></div>
+      
+      <div class="mt-4 pt-3 border-t border-slate-100">
+        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Acertos Sugeridos</h3>
+        <div id="debts-container" class="space-y-1 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- Extrato Cronológico -->
+    <section class="space-y-3">
+      <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">Histórico de Lançamentos</h2>
+      <div id="feed-container" class="space-y-3"></div>
+    </section>
+
+  </main>
+
+  <!-- Barra de Ações Fixa (Mobile) -->
+  <footer class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-3 z-20">
+    <div class="max-w-md mx-auto grid grid-cols-2 gap-3">
+      <button onclick="openExpenseModal()" class="bg-blue-600 active:bg-blue-700 text-white font-medium rounded-xl text-sm py-3 shadow-sm touch-target">
+        + Despesa
+      </button>
+      <button onclick="openPaymentModal()" class="bg-emerald-600 active:bg-emerald-700 text-white font-medium rounded-xl text-sm py-3 shadow-sm touch-target">
+        + Abatimento / PIX
+      </button>
+    </div>
+  </footer>
+
+  <!-- MODAL: Gerenciar Participantes -->
+  <div id="modal-participants" class="fixed inset-0 bg-black/60 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-base">Participantes</h3>
+        <button onclick="closeModal('modal-participants')" class="text-slate-400 hover:text-slate-600 p-2 touch-target">✕</button>
+      </div>
+      <div class="flex gap-2">
+        <input type="text" id="new-participant-name" placeholder="Nome do participante" class="flex-1 border rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+        <button onclick="addParticipant()" class="bg-slate-900 text-white px-4 rounded-lg text-sm font-medium touch-target">Adicionar</button>
+      </div>
+      <div id="participants-list" class="divide-y divide-slate-100"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Despesa (Criar / Editar) -->
+  <div id="modal-expense" class="fixed inset-0 bg-black/60 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 id="expense-modal-title" class="font-bold text-base">Nova Despesa</h3>
+        <button onclick="closeModal('modal-expense')" class="text-slate-400 hover:text-slate-600 p-2 touch-target">✕</button>
+      </div>
+      <form id="form-expense" onsubmit="saveExpense(event)" class="space-y-4">
+        <input type="hidden" id="expense-id" />
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Data</label>
+          <input type="date" id="expense-date" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Descrição / Estabelecimento</label>
+          <input type="text" id="expense-desc" placeholder="Ex: Supermercado, Almoço..." required class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Valor Total (R$)</label>
+          <input type="number" step="0.01" inputmode="decimal" id="expense-amount" placeholder="0,00" required class="w-full border rounded-lg px-3 py-2 text-base font-semibold" oninput="updateQuotaDisplay()" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Quem Pagou?</label>
+          <div id="expense-payer-chips" class="flex flex-wrap gap-2"></div>
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-xs font-semibold text-slate-600">Dividir Entre:</label>
+            <span id="quota-display" class="text-xs font-semibold text-blue-600"></span>
+          </div>
+          <div id="expense-split-chips" class="flex flex-wrap gap-2"></div>
+        </div>
+        <button type="submit" class="w-full bg-blue-600 active:bg-blue-700 text-white font-medium py-3 rounded-xl touch-target">Salvar Despesa</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Abatimento / PIX -->
+  <div id="modal-payment" class="fixed inset-0 bg-black/60 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-base">Registrar Pagamento / PIX</h3>
+        <button onclick="closeModal('modal-payment')" class="text-slate-400 hover:text-slate-600 p-2 touch-target">✕</button>
+      </div>
+      <form id="form-payment" onsubmit="savePayment(event)" class="space-y-4">
+        <input type="hidden" id="payment-id" />
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Data</label>
+          <input type="date" id="payment-date" required class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Valor Pago (R$)</label>
+          <input type="number" step="0.01" inputmode="decimal" id="payment-amount" placeholder="0,00" required class="w-full border rounded-lg px-3 py-2 text-base font-semibold" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Quem Transferiu?</label>
+          <div id="payment-payer-chips" class="flex flex-wrap gap-2"></div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Para Quem (Recebedores do crédito):</label>
+          <div id="payment-receivers-chips" class="flex flex-wrap gap-2"></div>
+        </div>
+        <button type="submit" class="w-full bg-emerald-600 active:bg-emerald-700 text-white font-medium py-3 rounded-xl touch-target">Registrar Pagamento</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Estado da Aplicação
+    const DEFAULT_PARTICIPANTS = ["João Zanetti", "Willian", "Weslen"];
+    let state = {
+      participants: JSON.parse(localStorage.getItem('app_participants')) || DEFAULT_PARTICIPANTS,
+      transactions: JSON.parse(localStorage.getItem('app_transactions')) || []
+    };
+
+    let selectedExpensePayer = "";
+    let selectedExpenseSplit = [];
+    let selectedPaymentPayer = "";
+    let selectedPaymentReceivers = [];
+
+    function saveState() {
+      localStorage.setItem('app_participants', JSON.stringify(state.participants));
+      localStorage.setItem('app_transactions', JSON.stringify(state.transactions));
+      render();
+    }
+
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    // Participantes
+    function addParticipant() {
+      const input = document.getElementById('new-participant-name');
+      const name = input.value.trim();
+      if (!name) return;
+      if (state.participants.includes(name)) {
+        alert("Participante já existe.");
+        return;
+      }
+      state.participants.push(name);
+      input.value = "";
+      saveState();
+      renderParticipants();
+    }
+
+    function removeParticipant(name) {
+      if (confirm(`Remover "${name}"? Os lançamentos associados continuarão nos registros.`)) {
+        state.participants = state.participants.filter(p => p !== name);
+        saveState();
+        renderParticipants();
+      }
+    }
+
+    function renderParticipants() {
+      const container = document.getElementById('participants-list');
+      container.innerHTML = state.participants.map(p => `
+        <div class="flex justify-between items-center py-2.5">
+          <span class="text-sm font-medium">${p}</span>
+          <button onclick="removeParticipant('${p}')" class="text-rose-500 text-xs px-2 py-1 rounded hover:bg-rose-50 touch-target">Excluir</button>
+        </div>
+      `).join('');
+    }
+
+    // Modal Despesa
+    function openExpenseModal(editId = null) {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('form-expense').reset();
+      document.getElementById('expense-id').value = editId || "";
+      document.getElementById('expense-date').value = today;
+
+      if (editId) {
+        const item = state.transactions.find(t => t.id === editId);
+        document.getElementById('expense-modal-title').innerText = "Editar Despesa";
+        document.getElementById('expense-date').value = item.date;
+        document.getElementById('expense-desc').value = item.description;
+        document.getElementById('expense-amount').value = item.amount;
+        selectedExpensePayer = item.payer;
+        selectedExpenseSplit = [...item.splitWith];
+      } else {
+        document.getElementById('expense-modal-title').innerText = "Nova Despesa";
+        selectedExpensePayer = state.participants[0] || "";
+        selectedExpenseSplit = [...state.participants];
+      }
+
+      renderExpenseChips();
+      updateQuotaDisplay();
+      openModal('modal-expense');
+    }
+
+    function renderExpenseChips() {
+      const payerContainer = document.getElementById('expense-payer-chips');
+      payerContainer.innerHTML = state.participants.map(p => `
+        <button type="button" onclick="selectedExpensePayer='${p}'; renderExpenseChips();" 
+          class="px-3 py-2 rounded-lg text-xs font-medium border transition-colors touch-target ${selectedExpensePayer === p ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+          ${p}
+        </button>
+      `).join('');
+
+      const splitContainer = document.getElementById('expense-split-chips');
+      splitContainer.innerHTML = state.participants.map(p => {
+        const active = selectedExpenseSplit.includes(p);
+        return `
+          <button type="button" onclick="toggleExpenseSplit('${p}')" 
+            class="px-3 py-2 rounded-lg text-xs font-medium border transition-colors touch-target ${active ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+            ${active ? '✓ ' : ''}${p}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function toggleExpenseSplit(name) {
+      if (selectedExpenseSplit.includes(name)) {
+        if (selectedExpenseSplit.length > 1) {
+          selectedExpenseSplit = selectedExpenseSplit.filter(p => p !== name);
+        }
+      } else {
+        selectedExpenseSplit.push(name);
+      }
+      renderExpenseChips();
+      updateQuotaDisplay();
+    }
+
+    function updateQuotaDisplay() {
+      const amount = parseFloat(document.getElementById('expense-amount').value) || 0;
+      const count = selectedExpenseSplit.length;
+      const quota = count > 0 ? (amount / count).toFixed(2) : '0.00';
+      document.getElementById('quota-display').innerText = count > 0 ? `R$ ${quota} / pessoa (${count})` : '';
+    }
+
+    function saveExpense(e) {
+      e.preventDefault();
+      const id = document.getElementById('expense-id').value || 'tx_' + Date.now();
+      const date = document.getElementById('expense-date').value;
+      const description = document.getElementById('expense-desc').value.trim();
+      const amount = parseFloat(document.getElementById('expense-amount').value);
+
+      if (!selectedExpensePayer || selectedExpenseSplit.length === 0) {
+        alert("Selecione quem pagou e ao menos uma pessoa para dividir.");
+        return;
+      }
+
+      const tx = {
+        id,
+        type: 'EXPENSE',
+        date,
+        description,
+        amount,
+        payer: selectedExpensePayer,
+        splitWith: selectedExpenseSplit
+      };
+
+      const existingIndex = state.transactions.findIndex(t => t.id === id);
+      if (existingIndex > -1) {
+        state.transactions[existingIndex] = tx;
+      } else {
+        state.transactions.unshift(tx);
+      }
+
+      saveState();
+      closeModal('modal-expense');
+    }
+
+    // Modal Pagamento
+    function openPaymentModal() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('form-payment').reset();
+      document.getElementById('payment-date').value = today;
+      selectedPaymentPayer = state.participants[0] || "";
+      selectedPaymentReceivers = state.participants.filter(p => p !== selectedPaymentPayer);
+      renderPaymentChips();
+      openModal('modal-payment');
+    }
+
+    function renderPaymentChips() {
+      const payerContainer = document.getElementById('payment-payer-chips');
+      payerContainer.innerHTML = state.participants.map(p => `
+        <button type="button" onclick="selectedPaymentPayer='${p}'; selectedPaymentReceivers = selectedPaymentReceivers.filter(r => r !== '${p}'); renderPaymentChips();" 
+          class="px-3 py-2 rounded-lg text-xs font-medium border touch-target ${selectedPaymentPayer === p ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+          ${p}
+        </button>
+      `).join('');
+
+      const receiverContainer = document.getElementById('payment-receivers-chips');
+      receiverContainer.innerHTML = state.participants.filter(p => p !== selectedPaymentPayer).map(p => {
+        const active = selectedPaymentReceivers.includes(p);
+        return `
+          <button type="button" onclick="togglePaymentReceiver('${p}')" 
+            class="px-3 py-2 rounded-lg text-xs font-medium border touch-target ${active ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 text-slate-700 border-slate-200'}">
+            ${active ? '✓ ' : ''}${p}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function togglePaymentReceiver(name) {
+      if (selectedPaymentReceivers.includes(name)) {
+        if (selectedPaymentReceivers.length > 1) {
+          selectedPaymentReceivers = selectedPaymentReceivers.filter(p => p !== name);
+        }
+      } else {
+        selectedPaymentReceivers.push(name);
+      }
+      renderPaymentChips();
+    }
+
+    function savePayment(e) {
+      e.preventDefault();
+      const date = document.getElementById('payment-date').value;
+      const amount = parseFloat(document.getElementById('payment-amount').value);
+
+      if (!selectedPaymentPayer || selectedPaymentReceivers.length === 0) {
+        alert("Selecione quem transferiu e o(s) destinatário(s).");
+        return;
+      }
+
+      const tx = {
+        id: 'tx_' + Date.now(),
+        type: 'PAYMENT',
+        date,
+        description: `Transferência/PIX para ${selectedPaymentReceivers.join(', ')}`,
+        amount,
+        payer: selectedPaymentPayer,
+        splitWith: selectedPaymentReceivers
+      };
+
+      state.transactions.unshift(tx);
+      saveState();
+      closeModal('modal-payment');
+    }
+
+    function deleteTransaction(id) {
+      if (confirm("Excluir este lançamento?")) {
+        state.transactions = state.transactions.filter(t => t.id !== id);
+        saveState();
+      }
+    }
+
+    function settleAll() {
+      if (confirm("Deseja liquidar todas as contas e arquivar o ciclo atual?")) {
+        state.transactions = [];
+        saveState();
+      }
+    }
+
+    // Cálculos de Saldo e Acertos
+    function calculateBalances() {
+      const net = {};
+      state.participants.forEach(p => net[p] = 0);
+
+      state.transactions.forEach(tx => {
+        if (tx.type === 'EXPENSE') {
+          const quota = tx.amount / tx.splitWith.length;
+          if (net[tx.payer] !== undefined) net[tx.payer] += tx.amount;
+          tx.splitWith.forEach(person => {
+            if (net[person] !== undefined) net[person] -= quota;
+          });
+        } else if (tx.type === 'PAYMENT') {
+          const quota = tx.amount / tx.splitWith.length;
+          if (net[tx.payer] !== undefined) net[tx.payer] += tx.amount;
+          tx.splitWith.forEach(receiver => {
+            if (net[receiver] !== undefined) net[receiver] -= quota;
+          });
+        }
+      });
+
+      return net;
+    }
+
+    function simplifyDebts(netBalances) {
+      const debtors = [];
+      const creditors = [];
+
+      Object.entries(netBalances).forEach(([name, amount]) => {
+        const val = Math.round(amount * 100) / 100;
+        if (val < -0.01) debtors.push({ name, amount: -val });
+        if (val > 0.01) creditors.push({ name, amount: val });
+      });
+
+      const settlements = [];
+      let i = 0, j = 0;
+
+      while (i < debtors.length && j < creditors.length) {
+        const debt = debtors[i].amount;
+        const credit = creditors[j].amount;
+        const settled = Math.min(debt, credit);
+
+        settlements.push({
+          from: debtors[i].name,
+          to: creditors[j].name,
+          amount: settled
+        });
+
+        debtors[i].amount -= settled;
+        creditors[j].amount -= settled;
+
+        if (debtors[i].amount < 0.01) i++;
+        if (creditors[j].amount < 0.01) j++;
+      }
+
+      return settlements;
+    }
+
+    // Renderização Principal
+    function render() {
+      renderParticipants();
+      
+      const balances = calculateBalances();
+      const balancesContainer = document.getElementById('balances-container');
+      balancesContainer.innerHTML = state.participants.map(p => {
+        const val = balances[p] || 0;
+        const isPositive = val > 0.01;
+        const isNegative = val < -0.01;
+        const color = isPositive ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : isNegative ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-slate-600 bg-slate-50 border-slate-200';
+        return `
+          <div class="p-2.5 rounded-lg border text-center ${color}">
+            <div class="text-[11px] font-medium truncate">${p}</div>
+            <div class="text-xs font-bold mt-0.5">R$ ${val.toFixed(2)}</div>
+          </div>
+        `;
+      }).join('');
+
+      const debts = simplifyDebts(balances);
+      const debtsContainer = document.getElementById('debts-container');
+      if (debts.length === 0) {
+        debtsContainer.innerHTML = `<span class="text-xs text-slate-400">Tudo zerado! Nenhuma pendência.</span>`;
+      } else {
+        debtsContainer.innerHTML = debts.map(d => `
+          <div class="flex items-center justify-between py-1 border-b border-slate-50 text-xs">
+            <span><strong class="text-rose-600">${d.from}</strong> deve para <strong class="text-emerald-600">${d.to}</strong></span>
+            <span class="font-bold">R$ ${d.amount.toFixed(2)}</span>
+          </div>
+        `).join('');
+      }
+
+      // Extrato Agrupado por Data
+      const feedContainer = document.getElementById('feed-container');
+      if (state.transactions.length === 0) {
+        feedContainer.innerHTML = `<div class="bg-white rounded-xl p-6 text-center text-slate-400 text-sm border border-slate-200">Nenhum lançamento registrado.</div>`;
+        return;
+      }
+
+      // Agrupamento
+      const grouped = {};
+      state.transactions.forEach(tx => {
+        if (!grouped[tx.date]) grouped[tx.date] = [];
+        grouped[tx.date].push(tx);
+      });
+
+      feedContainer.innerHTML = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)).map(date => {
+        const items = grouped[date];
+        const dateFormatted = new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+
+        return `
+          <div class="space-y-1.5">
+            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">${dateFormatted}</div>
+            ${items.map(item => {
+              const isExpense = item.type === 'EXPENSE';
+              const quota = (item.amount / item.splitWith.length).toFixed(2);
+              return `
+                <div class="bg-white rounded-xl p-3.5 shadow-sm border border-slate-200 flex flex-col gap-2">
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <div class="font-semibold text-sm text-slate-800">${item.description}</div>
+                      <div class="text-xs text-slate-500 mt-0.5">
+                        Pago por <strong class="text-slate-700">${item.payer}</strong>
+                        ${isExpense ? `• R$ ${quota} / pessoa` : ''}
+                      </div>
+                    </div>
+                    <span class="text-sm font-bold ${isExpense ? 'text-slate-900' : 'text-emerald-600'}">
+                      R$ ${item.amount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div class="flex justify-between items-center pt-2 border-t border-slate-100 text-xs text-slate-400">
+                    <span class="truncate max-w-[200px]">Divisão: ${item.splitWith.join(', ')}</span>
+                    <div class="flex gap-2">
+                      ${isExpense ? `<button onclick="openExpenseModal('${item.id}')" class="text-blue-600 hover:underline">Editar</button>` : ''}
+                      <button onclick="deleteTransaction('${item.id}')" class="text-rose-600 hover:underline">Excluir</button>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Inicialização
+    render();
+  </script>
+</body>
+</html>
