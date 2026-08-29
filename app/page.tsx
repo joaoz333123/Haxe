@@ -10,7 +10,7 @@ import {
   Wallet,
   ArrowRightLeft,
   Receipt,
-  CloudCheck,
+  Cloud,
   CloudOff,
   X,
   Check,
@@ -350,7 +350,7 @@ export default function RateioApp() {
             <Users className="w-4 h-4 text-emerald-400" />
           </button>
           <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            {syncStatus === 'synced' && <CloudCheck className="w-3.5 h-3.5" />}
+            {syncStatus === 'synced' && <Cloud className="w-3.5 h-3.5" />}
             {syncStatus === 'syncing' && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
             {syncStatus === 'local' && <CloudOff className="w-3.5 h-3.5 text-amber-400" />}
             <span>{syncStatus === 'synced' ? 'Nuvem' : syncStatus === 'syncing' ? 'Salvando' : 'Offline'}</span>
