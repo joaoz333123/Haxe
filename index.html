@@ -278,11 +278,13 @@
     }
 
     function removeParticipant(name) {
-      if (confirm(`Remover "${name}"? Os lançamentos associados continuarão nos registros.`)) {
-        state.participants = state.participants.filter(p => p !== name);
-        saveState();
-        renderParticipants();
-      }
+      requireAuth(() => {
+        if (confirm(`Remover "${name}"? Os lançamentos associados continuarão nos registros.`)) {
+          state.participants = state.participants.filter(p => p !== name);
+          saveState();
+          renderParticipants();
+        }
+      });
     }
 
     function renderParticipants() {
@@ -297,6 +299,16 @@
 
     // Modal Despesa
     function openExpenseModal(editId = null) {
+      if (editId) {
+        requireAuth(() => {
+          showExpenseModalContent(editId);
+        });
+      } else {
+        showExpenseModalContent(null);
+      }
+    }
+
+    function showExpenseModalContent(editId = null) {
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('form-expense').reset();
       document.getElementById('expense-id').value = editId || "";
@@ -462,21 +474,17 @@
       closeModal('modal-payment');
     }
 
-    function deleteTransaction(id) {
-      if (confirm("Excluir este lançamento?")) {
-        state.transactions = state.transactions.filter(t => t.id !== id);
-        saveState();
-      }
-    }
+    let pendingAuthCallback = null;
 
     function isSessionAuthenticated() {
       return sessionStorage.getItem('clube_oe_admin_auth') === 'true';
     }
 
-    function settleAll() {
+    function requireAuth(callback) {
       if (isSessionAuthenticated()) {
-        executeSettleAll();
+        callback();
       } else {
+        pendingAuthCallback = callback;
         document.getElementById('form-password').reset();
         document.getElementById('password-error').classList.add('hidden');
         openModal('modal-password');
@@ -484,6 +492,24 @@
           document.getElementById('admin-password-input')?.focus();
         }, 100);
       }
+    }
+
+    function deleteTransaction(id) {
+      requireAuth(() => {
+        if (confirm("Excluir este lançamento?")) {
+          state.transactions = state.transactions.filter(t => t.id !== id);
+          saveState();
+        }
+      });
+    }
+
+    function settleAll() {
+      requireAuth(() => {
+        if (confirm("Deseja liquidar todas as contas e zerar o ciclo atual?")) {
+          state.transactions = [];
+          saveState();
+        }
+      });
     }
 
     async function handleVerifyPassword(e) {
@@ -499,6 +525,18 @@
       btn.innerText = "Verificando...";
       errorEl.classList.add('hidden');
 
+      const onAuthSuccess = () => {
+        sessionStorage.setItem('clube_oe_admin_auth', 'true');
+        closeModal('modal-password');
+        btn.disabled = false;
+        btn.innerText = "Confirmar";
+        if (typeof pendingAuthCallback === 'function') {
+          const cb = pendingAuthCallback;
+          pendingAuthCallback = null;
+          cb();
+        }
+      };
+
       try {
         const res = await fetch('/api/transactions', {
           method: 'POST',
@@ -508,23 +546,15 @@
 
         if (res.ok) {
           const data = await res.json();
-          if (data.authorized) {
-            sessionStorage.setItem('clube_oe_admin_auth', 'true');
-            closeModal('modal-password');
-            btn.disabled = false;
-            btn.innerText = "Confirmar";
-            executeSettleAll();
+          if (data.authorized || data.success) {
+            onAuthSuccess();
             return;
           }
         }
       } catch (err) {
         // Fallback resiliente offline
         if (password === '12') {
-          sessionStorage.setItem('clube_oe_admin_auth', 'true');
-          closeModal('modal-password');
-          btn.disabled = false;
-          btn.innerText = "Confirmar";
-          executeSettleAll();
+          onAuthSuccess();
           return;
         }
       }
@@ -534,13 +564,6 @@
       errorEl.classList.remove('hidden');
       input.value = '';
       input.focus();
-    }
-
-    function executeSettleAll() {
-      if (confirm("Deseja liquidar todas as contas e zerar o ciclo atual?")) {
-        state.transactions = [];
-        saveState();
-      }
     }
 
     // Cálculos de Saldo e Acertos
