@@ -1,6 +1,7 @@
 const net = require('net');
 
 const STORAGE_KEY = 'haxe_rateio_data';
+const RESET_PASSWORD = process.env.RESET_PASSWORD || '12';
 
 function parseRedisUrl(redisUrl) {
   if (!redisUrl) return null;
@@ -100,6 +101,18 @@ function parseRespValue(buffer) {
 }
 
 module.exports = async function handler(req, res) {
+  // Ação de verificação de senha administrativa
+  if (req.method === 'POST') {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    if (body && body.action === 'verify-admin') {
+      if (String(body.password).trim() === String(RESET_PASSWORD).trim()) {
+        return res.status(200).json({ success: true, authorized: true });
+      } else {
+        return res.status(401).json({ success: false, authorized: false, error: 'Senha incorreta' });
+      }
+    }
+  }
+
   const redisUrl = process.env.REDIS_URL || process.env.KV_URL;
   const config = parseRedisUrl(redisUrl);
 

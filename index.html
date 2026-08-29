@@ -145,6 +145,29 @@
     </div>
   </div>
 
+  <!-- MODAL: Senha para Zerar Ciclo -->
+  <div id="modal-password" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 text-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-base flex items-center gap-1.5 text-amber-400">
+          🔒 Autorização Necessária
+        </h3>
+        <button onclick="closeModal('modal-password')" class="text-slate-400 hover:text-white p-2 touch-target">✕</button>
+      </div>
+      <p class="text-xs text-slate-300">
+        Digite a senha para autorizar o zeramento do ciclo:
+      </p>
+      <form id="form-password" onsubmit="handleVerifyPassword(event)" class="space-y-4">
+        <input type="password" id="admin-password-input" placeholder="Digite a senha" required autofocus class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-center text-lg tracking-widest text-white outline-none focus:border-amber-500" />
+        <div id="password-error" class="text-xs text-rose-400 hidden text-center font-medium">Senha incorreta. Tente novamente.</div>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" onclick="closeModal('modal-password')" class="w-full bg-slate-800 text-slate-300 py-2.5 rounded-xl text-sm font-medium touch-target">Cancelar</button>
+          <button type="submit" id="btn-submit-password" class="w-full bg-amber-500 text-slate-950 py-2.5 rounded-xl text-sm font-bold touch-target">Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     const DEFAULT_PARTICIPANTS = ["João Zanetti", "Willian", "Weslen"];
 
@@ -446,7 +469,74 @@
       }
     }
 
+    function isSessionAuthenticated() {
+      return sessionStorage.getItem('clube_oe_admin_auth') === 'true';
+    }
+
     function settleAll() {
+      if (isSessionAuthenticated()) {
+        executeSettleAll();
+      } else {
+        document.getElementById('form-password').reset();
+        document.getElementById('password-error').classList.add('hidden');
+        openModal('modal-password');
+        setTimeout(() => {
+          document.getElementById('admin-password-input')?.focus();
+        }, 100);
+      }
+    }
+
+    async function handleVerifyPassword(e) {
+      e.preventDefault();
+      const input = document.getElementById('admin-password-input');
+      const errorEl = document.getElementById('password-error');
+      const btn = document.getElementById('btn-submit-password');
+      const password = input.value.trim();
+
+      if (!password) return;
+
+      btn.disabled = true;
+      btn.innerText = "Verificando...";
+      errorEl.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'verify-admin', password })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authorized) {
+            sessionStorage.setItem('clube_oe_admin_auth', 'true');
+            closeModal('modal-password');
+            btn.disabled = false;
+            btn.innerText = "Confirmar";
+            executeSettleAll();
+            return;
+          }
+        }
+      } catch (err) {
+        // Fallback resiliente offline
+        if (password === '12') {
+          sessionStorage.setItem('clube_oe_admin_auth', 'true');
+          closeModal('modal-password');
+          btn.disabled = false;
+          btn.innerText = "Confirmar";
+          executeSettleAll();
+          return;
+        }
+      }
+
+      btn.disabled = false;
+      btn.innerText = "Confirmar";
+      errorEl.classList.remove('hidden');
+      input.value = '';
+      input.focus();
+    }
+
+    function executeSettleAll() {
       if (confirm("Deseja liquidar todas as contas e zerar o ciclo atual?")) {
         state.transactions = [];
         saveState();

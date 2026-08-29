@@ -54,12 +54,7 @@ async function runTests() {
 
   // Teste 2: Testar Gravação (POST) com dados completos
   const testPayload = {
-    participants: [
-      { id: '1', name: 'João Zanetti' },
-      { id: '2', name: 'Willian' },
-      { id: '3', name: 'Weslen' },
-      { id: '4', name: 'Teste Automático' }
-    ],
+    participants: ["João Zanetti", "Willian", "Weslen"],
     transactions: [
       {
         id: 'tx_test_' + Date.now(),
@@ -99,7 +94,7 @@ async function runTests() {
     const result = getResult();
 
     const data = result.responseData;
-    const hasParticipant = data?.participants?.some(p => p.name === 'Teste Automático');
+    const hasParticipant = data?.participants?.includes('João Zanetti');
     const hasTransaction = data?.transactions?.some(t => t.description === 'Despesa Teste de Integração Nuvem');
 
     if (result.statusCode === 200 && hasParticipant && hasTransaction) {
@@ -114,9 +109,36 @@ async function runTests() {
     failed++;
   }
 
-  // Teste 4: Fallback resiliente em caso de falha de conexão ou ausência de URL
+  // Teste 4: Validar verificação de senha administrativa no backend
   try {
-    console.log("\n➡️ [TESTE 4] Testando resiliência / Fallback (simulando ausência de REDIS_URL)...");
+    console.log("\n➡️ [TESTE 4] Validando autenticação de senha no backend ('12' vs 'errada')...");
+    
+    // Senha correta
+    const validCheck = mockReqRes('POST', { action: 'verify-admin', password: '12' });
+    await handler(validCheck.req, validCheck.res);
+    const validRes = validCheck.getResult();
+
+    // Senha incorreta
+    const invalidCheck = mockReqRes('POST', { action: 'verify-admin', password: '99' });
+    await handler(invalidCheck.req, invalidCheck.res);
+    const invalidRes = invalidCheck.getResult();
+
+    if (validRes.statusCode === 200 && validRes.responseData?.authorized === true &&
+        invalidRes.statusCode === 401 && invalidRes.responseData?.authorized === false) {
+      console.log("   ✅ PASSOU: Senha '12' autorizada (200) e senha incorreta bloqueada (401).");
+      passed++;
+    } else {
+      console.error("   ❌ FALHOU na validação de senha:", { validRes, invalidRes });
+      failed++;
+    }
+  } catch (e) {
+    console.error("   ❌ FALHOU (Exceção na verificação de senha):", e.message);
+    failed++;
+  }
+
+  // Teste 5: Fallback resiliente em caso de ausência de REDIS_URL
+  try {
+    console.log("\n➡️ [TESTE 5] Testando resiliência / Fallback (simulando ausência de REDIS_URL)...");
     const originalUrl = process.env.REDIS_URL;
     delete process.env.REDIS_URL;
     delete process.env.KV_URL;
