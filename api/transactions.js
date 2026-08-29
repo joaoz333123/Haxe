@@ -1,63 +1,140 @@
-function getRedisConfig() {
-  let url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  let token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const net = require('net');
 
-  if ((!url || !token) && process.env.REDIS_URL) {
-    try {
-      const parsed = new URL(process.env.REDIS_URL);
-      token = parsed.password || token;
-      const host = parsed.hostname;
-      if (host && token) {
-        url = `https://${host}`;
-      }
-    } catch (e) {
-      console.warn('Error parsing REDIS_URL:', e);
-    }
+const STORAGE_KEY = 'haxe_rateio_data';
+
+function parseRedisUrl(redisUrl) {
+  if (!redisUrl) return null;
+  try {
+    const parsed = new URL(redisUrl);
+    return {
+      host: parsed.hostname,
+      port: parseInt(parsed.port, 10) || 6379,
+      password: parsed.password || null,
+      username: parsed.username || 'default'
+    };
+  } catch (e) {
+    return null;
   }
+}
 
-  return { url, token };
+function executeRedisCommands(config, commandArrays) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({
+      host: config.host,
+      port: config.port,
+      timeout: 5000
+    });
+
+    let buffer = Buffer.alloc(0);
+    let stage = 'CONNECT';
+
+    socket.on('connect', () => {
+      if (config.password) {
+        const authCmd = `*3\r\n$4\r\nAUTH\r\n$${Buffer.byteLength(config.username, 'utf8')}\r\n${config.username}\r\n$${Buffer.byteLength(config.password, 'utf8')}\r\n${config.password}\r\n`;
+        socket.write(authCmd);
+        stage = 'AUTH';
+      } else {
+        sendCommands();
+      }
+    });
+
+    function sendCommands() {
+      stage = 'EXEC';
+      let payload = '';
+      for (const cmdArgs of commandArrays) {
+        payload += `*${cmdArgs.length}\r\n`;
+        for (const arg of cmdArgs) {
+          const str = String(arg);
+          payload += `$${Buffer.byteLength(str, 'utf8')}\r\n${str}\r\n`;
+        }
+      }
+      socket.write(payload);
+    }
+
+    socket.on('data', (chunk) => {
+      buffer = Buffer.concat([buffer, chunk]);
+      const str = buffer.toString('utf8');
+
+      if (stage === 'AUTH') {
+        if (str.includes('+OK')) {
+          buffer = Buffer.alloc(0);
+          sendCommands();
+        } else if (str.includes('-ERR') || str.includes('-WRONGPASS')) {
+          socket.destroy();
+          reject(new Error(`Redis Auth Error: ${str.trim()}`));
+        }
+      } else if (stage === 'EXEC') {
+        socket.destroy();
+        resolve(buffer);
+      }
+    });
+
+    socket.on('timeout', () => {
+      socket.destroy();
+      reject(new Error('Redis Connection Timeout'));
+    });
+
+    socket.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+function parseRespValue(buffer) {
+  if (!buffer || buffer.length === 0) return null;
+  const str = buffer.toString('utf8');
+  if (str.startsWith('$-1')) {
+    return null;
+  }
+  if (str.startsWith('$')) {
+    const firstNewline = str.indexOf('\r\n');
+    if (firstNewline === -1) return null;
+    const length = parseInt(str.substring(1, firstNewline), 10);
+    const content = str.substring(firstNewline + 2, firstNewline + 2 + length);
+    return content;
+  }
+  if (str.startsWith('+OK')) {
+    return 'OK';
+  }
+  return str.trim();
 }
 
 module.exports = async function handler(req, res) {
-  const { url, token } = getRedisConfig();
-  const STORAGE_KEY = 'haxe_rateio_data';
+  const redisUrl = process.env.REDIS_URL || process.env.KV_URL;
+  const config = parseRedisUrl(redisUrl);
+
+  if (!config) {
+    return res.status(200).json({ _offlineFallback: true, message: 'REDIS_URL not found' });
+  }
 
   if (req.method === 'GET') {
-    if (!url || !token) {
-      return res.status(200).json({ _offlineFallback: true });
-    }
     try {
-      const response = await fetch(`${url}/get/${STORAGE_KEY}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (!data || data.result === null || data.result === undefined) {
+      const rawResp = await executeRedisCommands(config, [['GET', STORAGE_KEY]]);
+      const rawValue = parseRespValue(rawResp);
+      if (!rawValue) {
         return res.status(200).json(null);
       }
-      const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-      return res.status(200).json(parsed);
-    } catch (e) {
-      return res.status(200).json({ _offlineFallback: true });
+      const parsedData = typeof rawValue === 'string' ? JSON.parse(rawValue) : rawValue;
+      return res.status(200).json(parsedData);
+    } catch (err) {
+      console.error('Redis GET Error:', err.message);
+      return res.status(200).json({ _offlineFallback: true, error: err.message });
     }
   }
 
   if (req.method === 'POST') {
-    if (!url || !token) {
-      return res.status(200).json({ _offlineFallback: true });
-    }
     try {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      await fetch(`${url}/set/${STORAGE_KEY}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(JSON.stringify(body))
-      });
-      return res.status(200).json({ success: true });
-    } catch (e) {
-      return res.status(500).json({ error: e.message });
+      const jsonString = JSON.stringify(body);
+      const rawResp = await executeRedisCommands(config, [['SET', STORAGE_KEY, jsonString]]);
+      const status = parseRespValue(rawResp);
+      if (status === 'OK' || status?.includes('OK')) {
+        return res.status(200).json({ success: true });
+      }
+      return res.status(500).json({ error: 'Failed to save in Redis' });
+    } catch (err) {
+      console.error('Redis POST Error:', err.message);
+      return res.status(500).json({ error: err.message });
     }
   }
 
